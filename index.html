@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>📡 RF Annular Sector Analyzer — Industrial Tech - HPG</title>
+
+  <!-- Fuentes del Portafolio -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    :root {
+      --bg-dark: #090a0f;
+      --panel-bg: rgba(13, 16, 23, 0.92);
+      --card-bg: #121620;
+      --border: #1e2532;
+      --text: #f0f4f8;
+      --muted: #8a9aad;
+      --cyan: #00d2ff;
+      --orange: #ff7a00;
+      --green: #10b981;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      color: var(--text);
+      background: var(--bg-dark);
+    }
+
+    #map {
+      position: fixed;
+      inset: 0;
+      background: var(--bg-dark);
+    }
+
+    /* Panel Estilo Consola / Portafolio */
+    .panel {
+      position: fixed;
+      z-index: 1000;
+      top: 20px;
+      left: 70px;
+      width: min(400px, calc(100vw - 90px));
+      max-height: calc(100vh - 90px);
+      overflow-y: auto;
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+      padding: 20px;
+      backdrop-filter: blur(12px);
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .system-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--cyan);
+      letter-spacing: 0.5px;
+    }
+
+    /* Toggle de Idioma con Resaltado */
+    .lang-toggle-btn {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 4px 8px;
+      background: rgba(9, 12, 18, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      flex: none;
+      user-select: none;
+    }
+
+    .lang-toggle-btn:hover {
+      border-color: var(--cyan);
+    }
+
+    .lang-active {
+      color: var(--cyan);
+      font-weight: 700;
+      text-shadow: 0 0 6px rgba(0, 210, 255, 0.6);
+    }
+
+    .lang-inactive {
+      color: var(--muted);
+      opacity: 0.5;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: #fff;
+    }
+
+    .subtitle {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: var(--card-bg);
+    }
+
+    .card strong {
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+      letter-spacing: 0.5px;
+    }
+
+    .value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      color: #fff;
+    }
+
+    .coord-input {
+      width: 100%;
+      padding: 6px 8px;
+      font-size: 13px;
+      font-family: 'JetBrains Mono', monospace;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--cyan);
+      background: #090c12;
+      transition: all 0.2s ease;
+    }
+
+    .coord-input:focus {
+      outline: none;
+      border-color: var(--cyan);
+      box-shadow: 0 0 8px rgba(0, 210, 255, 0.25);
+    }
+
+    .instructions {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 8px;
+      background: rgba(18, 22, 32, 0.6);
+      border: 1px solid var(--border);
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .instructions b {
+      color: var(--text);
+    }
+
+    .sector-legend {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: rgba(255, 122, 0, 0.08);
+      border: 1px solid rgba(255, 122, 0, 0.25);
+      font-size: 12px;
+      line-height: 1.4;
+      color: #f1f5f9;
+    }
+
+    .sector-swatch {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      vertical-align: -1px;
+      margin-right: 6px;
+      border-radius: 2px;
+      background: rgba(255, 122, 0, 0.4);
+      border: 1px solid var(--orange);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    button {
+      flex: 1;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 10px 12px;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      font-size: 13px;
+      transition: all 0.2s ease;
+    }
+
+    button:hover {
+      background: #1a202c;
+      border-color: var(--muted);
+      color: #fff;
+    }
+
+    button.primary-btn {
+      border-color: rgba(0, 210, 255, 0.4);
+      color: var(--cyan);
+    }
+
+    button.primary-btn:hover {
+      background: rgba(0, 210, 255, 0.1);
+      border-color: var(--cyan);
+    }
+
+    /* Iconos personalizados Leaflet */
+    .center-icon {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fff;
+      border: 3px solid var(--bg-dark);
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+      cursor: grab;
+    }
+
+    .handle-icon {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--bg-dark);
+      border: 3px solid currentColor;
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    .green-handle {
+      color: var(--green);
+    }
+
+    .blue-handle {
+      color: var(--cyan);
+    }
+
+    .orange-handle {
+      color: var(--orange);
+    }
+
+    .leaflet-control-attribution {
+      background: rgba(9, 10, 15, 0.8) !important;
+      color: var(--muted) !important;
+      font-size: 10px;
+      margin-bottom: 36px !important;
+    }
+
+    .leaflet-control-attribution a {
+      color: var(--cyan) !important;
+    }
+
+    /* Footer del Portafolio */
+    .portfolio-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 36px;
+      z-index: 1001;
+      background: var(--panel-bg);
+      border-top: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      padding: 0 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .portfolio-footer .brand {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .portfolio-footer .brand span {
+      color: var(--cyan);
+    }
+
+    .portfolio-footer a {
+      color: var(--cyan);
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    .portfolio-footer a:hover {
+      color: #fff;
+      text-shadow: 0 0 8px rgba(0, 210, 255, 0.8);
+    }
+
+    .portfolio-footer .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .portfolio-footer .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+    }
+
+    @media (max-width: 600px) {
+      .panel {
+        top: 60px;
+        left: 10px;
+        width: calc(100vw - 20px);
+      }
+
+      .portfolio-footer .extra-info {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+
+  <section class="panel">
+    <div class="panel-header">
+      <span class="system-tag">// GEOMETRY EDITOR</span>
+      <button id="langToggleBtn" class="lang-toggle-btn" type="button">
+        <span class="lang-active">ES</span> | <span class="lang-inactive">EN</span>
+      </button>
+    </div>
+
+    <h1 id="txtTitle">Zona Anular</h1>
+    <p class="subtitle" id="txtSubtitle">
+      Modifica o arrastra el centro. Ajusta los radios con los tiradores <b>verde</b> y <b>cian</b>, o define los
+      límites angulares con los tiradores <b>naranjas</b>.
+    </p>
+
+    <div class="grid">
+      <div class="card">
+        <strong id="lblLat">Lat central</strong>
+        <input type="number" step="any" id="latInput" class="coord-input" value="-37.456802">
+      </div>
+      <div class="card">
+        <strong id="lblLng">Lng central</strong>
+        <input type="number" step="any" id="lngInput" class="coord-input" value="-61.938778">
+      </div>
+      <div class="card">
+        <strong id="lblRadiusGreen">Radio Verde</strong>
+        <div class="value"><span id="radiusGreenValue">1000</span> m</div>
+      </div>
+      <div class="card">
+        <strong id="lblRadiusBlue">Radio Cian</strong>
+        <div class="value"><span id="radiusBlueValue">2500</span> m</div>
+      </div>
+      <div class="card">
+        <strong id="lblAngle1">Ángulo 1</strong>
+        <div class="value"><span id="angle1Value">315</span>°</div>
+      </div>
+      <div class="card">
+        <strong id="lblAngle2">Ángulo 2</strong>
+        <div class="value"><span id="angle2Value">45</span>°</div>
+      </div>
+    </div>
+
+    <div class="instructions">
+      <b id="lblInstructionsHeader">Controles del sistema</b><br>
+      • <span id="lblInst1"><b>Lat/Lng:</b> Edición manual o arrastre del marcador central.</span><br>
+      • <span id="lblInst2"><b>Verde/Cian:</b> Ajustan radio interior/exterior.</span><br>
+      • <span id="lblInst3"><b>Naranja:</b> Orientación del sector circular.</span>
+    </div>
+
+    <div class="sector-legend">
+      <span class="sector-swatch"></span>
+      <span id="lblSectorLegend"><b>Sector Activo:</b> área delimitada entre radios y ángulos.</span>
+    </div>
+
+    <div class="btn-row">
+      <button id="resetBtn" type="button">Restablecer</button>
+      <button id="centerBtn" type="button" class="primary-btn">Centrar Mapa</button>
+    </div>
+  </section>
+
+  <!-- Footer del Portafolio con Links Reales -->
+  <footer class="portfolio-footer">
+    <div class="brand">
+      <span>//</span> © 2026
+      <a href="https://www.linkedin.com/in/hector-pablo-graff/" target="_blank" rel="noopener noreferrer">HÉCTOR PABLO
+        GRAFF</a>
+      // BACKEND ENGINEERING //
+      <a href="https://github.com/P4154N0" target="_blank" rel="noopener noreferrer">[GITHUB REPOS]</a> //
+      LOC: Argentina // TARGET: Calgary, AB (Energy Sector)
+    </div>
+    <div class="status">
+      <span class="status-dot"></span>
+      <span class="extra-info" id="statusText">SYSTEM ACTIVE — GEOSPATIAL MODULE</span>
+    </div>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const i18n = {
+      es: {
+        title: "Zona Anular",
+        subtitle: "Modifica o arrastra el centro. Ajusta los radios con los tiradores <b>verde</b> y <b>cian</b>, o define los límites angulares con los tiradores <b>naranjas</b>.",
+        lat: "Lat central",
+        lng: "Lng central",
+        radiusGreen: "Radio Verde",
+        radiusBlue: "Radio Cian",
+        angle1: "Ángulo 1",
+        angle2: "Ángulo 2",
+        instructionsHeader: "Controles del sistema",
+        inst1: "<b>Lat/Lng:</b> Edición manual o arrastre del marcador central.",
+        inst2: "<b>Verde/Cian:</b> Ajustan radio interior/exterior.",
+        inst3: "<b>Naranja:</b> Orientación del sector circular.",
+        sectorLegend: "<b>Sector Activo:</b> área delimitada entre radios y ángulos.",
+        resetBtn: "Restablecer",
+        centerBtn: "Centrar Mapa",
+        statusText: "SYSTEM ACTIVE — GEOSPATIAL MODULE"
+      },
+      en: {
+        title: "Annular Zone",
+        subtitle: "Modify or drag the center. Adjust radii with <b>green</b> and <b>cyan</b> handles, or set angular bounds with <b>orange</b> handles.",
+        lat: "Center Lat",
+        lng: "Center Lng",
+        radiusGreen: "Green Radius",
+        radiusBlue: "Cyan Radius",
+        angle1: "Angle 1",
+        angle2: "Angle 2",
+        instructionsHeader: "System Controls",
+        inst1: "<b>Lat/Lng:</b> Manual edit or drag center marker.",
+        inst2: "<b>Green/Cyan:</b> Adjust inner/outer radius.",
+        inst3: "<b>Orange:</b> Circular sector orientation.",
+        sectorLegend: "<b>Active Sector:</b> area bounded between radii and angles.",
+        resetBtn: "Reset",
+        centerBtn: "Center Map",
+        statusText: "SYSTEM ACTIVE — GEOSPATIAL MODULE"
+      }
+    };
+
+    let currentLang = 'es';
+
+    function setLanguage(lang) {
+      currentLang = lang;
+      const t = i18n[lang];
+
+      const btn = document.getElementById('langToggleBtn');
+      if (lang === 'es') {
+        btn.innerHTML = '<span class="lang-active">ES</span> | <span class="lang-inactive">EN</span>';
+      } else {
+        btn.innerHTML = '<span class="lang-inactive">ES</span> | <span class="lang-active">EN</span>';
+      }
+
+      document.getElementById('txtTitle').textContent = t.title;
+      document.getElementById('txtSubtitle').innerHTML = t.subtitle;
+      document.getElementById('lblLat').textContent = t.lat;
+      document.getElementById('lblLng').textContent = t.lng;
+      document.getElementById('lblRadiusGreen').textContent = t.radiusGreen;
+      document.getElementById('lblRadiusBlue').textContent = t.radiusBlue;
+      document.getElementById('lblAngle1').textContent = t.angle1;
+      document.getElementById('lblAngle2').textContent = t.angle2;
+      document.getElementById('lblInstructionsHeader').textContent = t.instructionsHeader;
+      document.getElementById('lblInst1').innerHTML = t.inst1;
+      document.getElementById('lblInst2').innerHTML = t.inst2;
+      document.getElementById('lblInst3').innerHTML = t.inst3;
+      document.getElementById('lblSectorLegend').innerHTML = t.sectorLegend;
+      document.getElementById('resetBtn').textContent = t.resetBtn;
+      document.getElementById('centerBtn').textContent = t.centerBtn;
+      document.getElementById('statusText').textContent = t.statusText;
+    }
+
+    document.getElementById('langToggleBtn').addEventListener('click', () => {
+      setLanguage(currentLang === 'es' ? 'en' : 'es');
+    });
+
+    const DEFAULT_CENTER = L.latLng(-37.456802113110825, -61.93877826035704);
+    let center = L.latLng(DEFAULT_CENTER.lat, DEFAULT_CENTER.lng);
+
+    const DEFAULTS = {
+      radiusGreen: 1000,
+      radiusBlue: 2500,
+      line1Length: 3500,
+      line2Length: 3500,
+      line1Angle: 315,
+      line2Angle: 45
+    };
+
+    let state = { ...DEFAULTS };
+
+    const map = L.map('map', {
+      zoomControl: true,
+      preferCanvas: true
+    }).setView(center, 13);
+
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 16,
+      attribution: 'Tiles &copy; Esri'
+    }).addTo(map);
+
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 16,
+      pane: 'shadowPane'
+    }).addTo(map);
+
+    const centerMarker = L.marker(center, {
+      draggable: true,
+      icon: L.divIcon({ className: '', html: '<div class="center-icon"></div>', iconSize: [16, 16], iconAnchor: [8, 8] })
+    }).addTo(map);
+
+    const circleGreen = L.circle(center, {
+      radius: DEFAULTS.radiusGreen,
+      color: '#10b981',
+      weight: 2,
+      fillColor: 'transparent',
+      dashArray: '5, 5'
+    }).addTo(map);
+
+    const circleBlue = L.circle(center, {
+      radius: DEFAULTS.radiusBlue,
+      color: '#00d2ff',
+      weight: 2,
+      fillColor: 'transparent',
+      dashArray: '5, 5'
+    }).addTo(map);
+
+    const greenHandle = L.marker(getPointFromCenter(DEFAULTS.radiusGreen, 180), {
+      draggable: true,
+      icon: L.divIcon({ className: '', html: '<div class="handle-icon green-handle"></div>', iconSize: [16, 16], iconAnchor: [8, 8] })
+    }).addTo(map);
+
+    const blueHandle = L.marker(getPointFromCenter(DEFAULTS.radiusBlue, 270), {
+      draggable: true,
+      icon: L.divIcon({ className: '', html: '<div class="handle-icon blue-handle"></div>', iconSize: [16, 16], iconAnchor: [8, 8] })
+    }).addTo(map);
+
+    const lineA = L.polyline([center, center], { color: '#ff7a00', weight: 2, opacity: 0.9, dashArray: '4, 6' }).addTo(map);
+    const lineB = L.polyline([center, center], { color: '#ff7a00', weight: 2, opacity: 0.9, dashArray: '4, 6' }).addTo(map);
+
+    let sectorPolygon = null;
+
+    function normalizeAngle(a) {
+      return (a % 360 + 360) % 360;
+    }
+
+    function minorSectorAngles(a1, a2) {
+      const start = normalizeAngle(a1);
+      const end = normalizeAngle(a2);
+      let diff = (end - start + 360) % 360;
+      if (diff <= 180) {
+        return { start, end, direction: 1, sweep: diff };
+      }
+      return { start: end, end: start, direction: 1, sweep: 360 - diff };
+    }
+
+    function buildSectorPoints() {
+      const sector = minorSectorAngles(state.line1Angle, state.line2Angle);
+      const points = [];
+      const step = Math.max(1, sector.sweep / 48);
+
+      const rMin = Math.min(state.radiusGreen, state.radiusBlue);
+      const rMax = Math.max(state.radiusGreen, state.radiusBlue);
+
+      for (let i = 0; i <= Math.ceil(sector.sweep / step); i++) {
+        const a = sector.start + Math.min(i * step, sector.sweep);
+        points.push(destination(center, rMax, a));
+      }
+
+      for (let i = Math.ceil(sector.sweep / step); i >= 0; i--) {
+        const a = sector.start + Math.min(i * step, sector.sweep);
+        points.push(destination(center, rMin, a));
+      }
+
+      return points;
+    }
+
+    function updateSector() {
+      const points = buildSectorPoints();
+      if (!sectorPolygon) {
+        sectorPolygon = L.polygon(points, {
+          color: '#ff7a00',
+          weight: 1.5,
+          opacity: 0.9,
+          fillColor: '#ff7a00',
+          fillOpacity: 0.25,
+          interactive: false
+        }).addTo(map);
+      } else {
+        sectorPolygon.setLatLngs(points);
+      }
+    }
+
+    const orangeHandles = [
+      L.marker(center, {
+        draggable: true,
+        icon: L.divIcon({ className: '', html: '<div class="handle-icon orange-handle"></div>', iconSize: [16, 16], iconAnchor: [8, 8] })
+      }).addTo(map),
+      L.marker(center, {
+        draggable: true,
+        icon: L.divIcon({ className: '', html: '<div class="handle-icon orange-handle"></div>', iconSize: [16, 16], iconAnchor: [8, 8] })
+      }).addTo(map)
+    ];
+
+    function getPointFromCenter(distanceM, bearingDeg) {
+      const latRad = center.lat * Math.PI / 180;
+      const dLat = (distanceM * Math.cos(bearingDeg * Math.PI / 180)) / 111320;
+      const dLng = (distanceM * Math.sin(bearingDeg * Math.PI / 180)) / (111320 * Math.cos(latRad));
+      return L.latLng(center.lat + dLat, center.lng + dLng);
+    }
+
+    function destination(latlng, distanceM, bearingDeg) {
+      const R = 6371000;
+      const phi1 = latlng.lat * Math.PI / 180;
+      const lambda1 = latlng.lng * Math.PI / 180;
+      const theta = bearingDeg * Math.PI / 180;
+      const delta = distanceM / R;
+      const sinPhi1 = Math.sin(phi1), cosPhi1 = Math.cos(phi1);
+      const sinDelta = Math.sin(delta), cosDelta = Math.cos(delta);
+      const phi2 = Math.asin(sinPhi1 * cosDelta + cosPhi1 * sinDelta * Math.cos(theta));
+      const lambda2 = lambda1 + Math.atan2(Math.sin(theta) * sinDelta * cosPhi1, cosDelta - sinPhi1 * Math.sin(phi2));
+      return L.latLng(phi2 * 180 / Math.PI, ((lambda2 * 180 / Math.PI + 540) % 360) - 180);
+    }
+
+    function distanceM(a, b) {
+      return map.distance(a, b);
+    }
+
+    function bearingDeg(a, b) {
+      const y = Math.sin((b.lng - a.lng) * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180);
+      const x = Math.cos(a.lat * Math.PI / 180) * Math.sin(b.lat * Math.PI / 180) -
+        Math.sin(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) *
+        Math.cos((b.lng - a.lng) * Math.PI / 180);
+      return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    }
+
+    function updateLines() {
+      const endA = destination(center, state.line1Length, state.line1Angle);
+      const endB = destination(center, state.line2Length, state.line2Angle);
+
+      lineA.setLatLngs([center, endA]);
+      lineB.setLatLngs([center, endB]);
+
+      orangeHandles[0].setLatLng(endA);
+      orangeHandles[1].setLatLng(endB);
+      updateSector();
+    }
+
+    function updateUI() {
+      if (document.activeElement !== document.getElementById('latInput')) {
+        document.getElementById('latInput').value = center.lat.toFixed(6);
+      }
+      if (document.activeElement !== document.getElementById('lngInput')) {
+        document.getElementById('lngInput').value = center.lng.toFixed(6);
+      }
+      document.getElementById('radiusGreenValue').textContent = Math.round(state.radiusGreen);
+      document.getElementById('radiusBlueValue').textContent = Math.round(state.radiusBlue);
+      document.getElementById('angle1Value').textContent = state.line1Angle.toFixed(1);
+      document.getElementById('angle2Value').textContent = state.line2Angle.toFixed(1);
+    }
+
+    function updateAll() {
+      centerMarker.setLatLng(center);
+
+      circleGreen.setLatLng(center);
+      circleGreen.setRadius(state.radiusGreen);
+      greenHandle.setLatLng(destination(center, state.radiusGreen, 180));
+
+      circleBlue.setLatLng(center);
+      circleBlue.setRadius(state.radiusBlue);
+      blueHandle.setLatLng(destination(center, state.radiusBlue, 270));
+
+      updateLines();
+      updateUI();
+    }
+
+    function onCoordInput() {
+      const lat = parseFloat(document.getElementById('latInput').value);
+      const lng = parseFloat(document.getElementById('lngInput').value);
+
+      if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        center = L.latLng(lat, lng);
+        updateAll();
+      }
+    }
+
+    document.getElementById('latInput').addEventListener('input', onCoordInput);
+    document.getElementById('lngInput').addEventListener('input', onCoordInput);
+
+    centerMarker.on('drag dragend', () => {
+      center = centerMarker.getLatLng();
+      updateAll();
+    });
+
+    greenHandle.on('drag dragend', (event) => {
+      const pos = greenHandle.getLatLng();
+      const r = Math.max(20, distanceM(center, pos));
+      state.radiusGreen = r;
+      circleGreen.setRadius(r);
+      updateSector();
+      updateUI();
+      if (event.type === 'dragend') {
+        greenHandle.setLatLng(destination(center, r, 180));
+      }
+    });
+
+    blueHandle.on('drag dragend', (event) => {
+      const pos = blueHandle.getLatLng();
+      const r = Math.max(20, distanceM(center, pos));
+      state.radiusBlue = r;
+      circleBlue.setRadius(r);
+      updateSector();
+      updateUI();
+      if (event.type === 'dragend') {
+        blueHandle.setLatLng(destination(center, r, 270));
+      }
+    });
+
+    function handleOrangeDrag(index, pos) {
+      const angle = bearingDeg(center, pos);
+      const length = Math.max(50, distanceM(center, pos));
+
+      if (index === 0) {
+        state.line1Angle = angle;
+        state.line1Length = length;
+      } else {
+        state.line2Angle = angle;
+        state.line2Length = length;
+      }
+
+      updateLines();
+      updateUI();
+    }
+
+    orangeHandles.forEach((handle, index) => {
+      handle.on('drag', () => handleOrangeDrag(index, handle.getLatLng()));
+      handle.on('dragend', () => handleOrangeDrag(index, handle.getLatLng()));
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      state = { ...DEFAULTS };
+      center = L.latLng(DEFAULT_CENTER.lat, DEFAULT_CENTER.lng);
+      map.setView(center, 13);
+      updateAll();
+    });
+
+    document.getElementById('centerBtn').addEventListener('click', () => {
+      map.setView(center, 13);
+    });
+
+    updateAll();
+  </script>
+</body>
+
+</html>
